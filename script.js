@@ -25,9 +25,12 @@ function initializeElements() {
     noResults = document.getElementById('noResults');
     
     // Pestaña de enlaces
+  // ANTES (incorrecto):
     photoUrlInput = document.getElementById('photoUrl');
     messageInput = document.getElementById('message');
-    createLinkBtn = document.getElementById('createLinkBtn');
+// DESPUÉS (correcto):
+   photoUrlInput = document.getElementById('photoUrlInput');
+    messageInput = document.getElementById('messageInput');
     generatedLink = document.getElementById('generatedLink');
     linkResultContainer = document.getElementById('linkResultContainer');
     noLinkGenerated = document.getElementById('noLinkGenerated');
