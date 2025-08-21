@@ -159,7 +159,8 @@
 
     <script>
         // Variables globales
-        let linkId = window.location.pathname.split('/').pop();
+       const urlParams = new URLSearchParams(window.location.search);
+let linkId = urlParams.get('id') || 'demo-' + Date.now();
         let linkData = null;
 
         // Elementos DOM
