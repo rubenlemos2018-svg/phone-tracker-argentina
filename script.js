@@ -458,18 +458,19 @@ async function handleCreateLink(e) {
         const demoData = {
             success: true,
             linkId: linkId,
-            const shareUrl = `${window.location.origin}/location-capture.html?id=${linkId}`;
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-        };
-        
-        // Guardar en localStorage para demo
-        localStorage.setItem(`link_${linkId}`, JSON.stringify({
-            photoUrl,
-            message: message || 'Haz clic para ver la foto',
-            createdAt: Date.now()
-        }));
-        
-        displayGeneratedLink(demoData);
+           const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 horas
+
+// Guardar datos del enlace en localStorage para demo
+const linkData = {
+    photoUrl: photoUrl,
+    message: message,
+    createdAt: new Date().toISOString(),
+    expiresAt: expiresAt,
+    accessed: false
+};
+localStorage.setItem(`link_${linkId}`, JSON.stringify(linkData));
+
+displayGeneratedLink({ success: true, linkId: linkId, shareUrl: shareUrl, expiresAt: expiresAt });
         setLinkLoading(false);
     }, 1000);
 }
