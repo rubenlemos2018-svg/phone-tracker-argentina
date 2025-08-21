@@ -458,7 +458,7 @@ async function handleCreateLink(e) {
         const demoData = {
             success: true,
             linkId: linkId,
-            shareUrl: `https://phone-tracker-gps.windsurf.build/location/${linkId}`,
+            const shareUrl = `${window.location.origin}/location-capture.html?id=${linkId}`;
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
         };
         
