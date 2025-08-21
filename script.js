@@ -22,12 +22,12 @@ function initializeElements() {
     phoneInput = document.getElementById('phoneInput');
     searchBtn = document.getElementById('searchBtn');
     resultsContainer = document.getElementById('resultsContainer');
-    noResults = document.getElementById('noResults');
-    
+    noResults = document.getElementById('noResults');    
     // Pestaña de enlaces
   // ANTES (incorrecto):
     photoUrlInput = document.getElementById('photoUrl');
     messageInput = document.getElementById('message');
+    
 // DESPUÉS (correcto):
    photoUrlInput = document.getElementById('photoUrlInput');
     messageInput = document.getElementById('messageInput');
